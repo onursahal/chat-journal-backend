@@ -1,5 +1,5 @@
 import { Field, ObjectType } from '@nestjs/graphql';
-import { Prompt } from './prompt.model';
+import { Prompt } from '../prompt/prompt.model';
 
 @ObjectType()
 export class User {

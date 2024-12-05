@@ -10,4 +10,10 @@ export class Prompt {
 
   @Field({ nullable: true })
   response?: string;
+
+  @Field()
+  conversationId: string;
+
+  @Field()
+  createdAt: Date;
 }
