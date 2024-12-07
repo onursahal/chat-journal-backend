@@ -4,15 +4,19 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { UserModule } from './user/user.module';
 import { PromptModule } from './prompt/prompt.module';
+import { AuthModule } from './auth/auth.module';
+import { DbModule } from './db/db.module';
 
 @Module({
   imports: [
+    DbModule,
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
       playground: false,
       plugins: [ApolloServerPluginLandingPageLocalDefault()],
     }),
+    AuthModule,
     UserModule,
     PromptModule,
   ],

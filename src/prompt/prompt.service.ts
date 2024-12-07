@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../db/prisma.service';
 import { GetAllPromptsWithUserIdArgs } from './dto/args/get-all-prompts-with-user-id.args';
 import { CreatePromptInput } from './dto/inputs/create-prompt.input';
 import { GetAllPromptsWithConversationIdArgs } from './dto/args/get-all-prompts-with-conversation-id.args';

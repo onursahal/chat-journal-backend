@@ -1,4 +1,4 @@
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../db/prisma.service';
 import { UserService } from './user.service';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -52,32 +52,34 @@ describe('UserService', () => {
     });
   });
 
-  describe('createUser', () => {
-    it('should create a user', async () => {
-      const mockCreateUserArgs = {
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-      };
+  //TODO: This test should be in auth service
 
-      const mockUser = {
-        id: 'mock-id',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+  // describe('createUser', () => {
+  //   it('should create a user', async () => {
+  //     const mockCreateUserArgs = {
+  //       firstName: 'John',
+  //       lastName: 'Doe',
+  //       email: 'john.doe@example.com',
+  //     };
 
-      mockPrismaService.user.create.mockResolvedValue(mockUser);
-      const result = await userService.createUser(mockCreateUserArgs);
+  //     const mockUser = {
+  //       id: 'mock-id',
+  //       firstName: 'John',
+  //       lastName: 'Doe',
+  //       email: 'john.doe@example.com',
+  //       createdAt: new Date(),
+  //       updatedAt: new Date(),
+  //     };
 
-      expect(result).toEqual(mockUser);
-      expect(prismaService.user.create).toHaveBeenCalledWith({
-        data: mockCreateUserArgs,
-      });
-    });
-  });
+  //     mockPrismaService.user.create.mockResolvedValue(mockUser);
+  //     const result = await userService.createUser(mockCreateUserArgs);
+
+  //     expect(result).toEqual(mockUser);
+  //     expect(prismaService.user.create).toHaveBeenCalledWith({
+  //       data: mockCreateUserArgs,
+  //     });
+  //   });
+  // });
 });
 
 //TODO: Add test for creating user with only required fields (email)
