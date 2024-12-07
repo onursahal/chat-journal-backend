@@ -3,12 +3,13 @@ import { LoginArgs } from './dto/args/login.args';
 import { AuthService } from './auth.service';
 import { CreateUserInput } from './dto/inputs/create-user.input';
 import { User } from '../user/user.model';
+import { LoginResponse } from './dto/types/login-response.type';
 
 @Resolver()
 export class AuthResolver {
   constructor(private authService: AuthService) {}
 
-  @Query(() => User)
+  @Query(() => LoginResponse)
   async login(@Args() loginData: LoginArgs) {
     return this.authService.login(loginData);
   }
