@@ -7,5 +7,5 @@ export class LoginResponse {
   user: User;
 
   @Field()
-  token: string;
+  access_token: string;
 }
