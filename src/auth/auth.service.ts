@@ -9,6 +9,8 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserInput } from './dto/inputs/create-user.input';
 import { JwtService } from '@nestjs/jwt';
 import { ValidateUserArgs } from './dto/args/validate-user.args';
+import { VerifyRefreshTokenArgs } from './dto/args/verify-refresh-token.args';
+import { LoginResponse } from './dto/types/login-response.type';
 
 @Injectable()
 export class AuthService {
@@ -46,7 +48,45 @@ export class AuthService {
     return {
       user,
       access_token: await this.jwtService.signAsync(payload),
+      refresh_token: await this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+      }),
     };
+  }
+
+  async verifyRefreshToken(
+    data: VerifyRefreshTokenArgs,
+  ): Promise<LoginResponse> {
+    try {
+      const { refresh_token } = data;
+      const { sub, email } = await this.jwtService.verifyAsync(refresh_token, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      const payload = { sub, email };
+
+      if (!payload.sub)
+        throw new UnauthorizedException('Invalid refresh token');
+
+      const user = await this.prismaService.user.findUnique({
+        where: {
+          id: payload.sub,
+        },
+      });
+
+      return {
+        user,
+        access_token: await this.jwtService.signAsync(payload),
+        refresh_token: await this.jwtService.signAsync(payload, {
+          secret: process.env.JWT_REFRESH_SECRET,
+          expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+        }),
+      };
+    } catch (error) {
+      console.log('error: ', error);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 
   async createUser(data: CreateUserInput) {
