@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ValidateUserArgs } from './dto/args/validate-user.args';
 import { VerifyRefreshTokenArgs } from './dto/args/verify-refresh-token.args';
 import { LoginResponse } from './dto/types/login-response.type';
+import { Errors, ErrorString } from 'src/errors';
 
 @Injectable()
 export class AuthService {
@@ -66,14 +67,13 @@ export class AuthService {
 
       const payload = { sub, email };
 
-      if (!payload.sub)
-        throw new UnauthorizedException('Invalid refresh token');
-
       const user = await this.prismaService.user.findUnique({
         where: {
           id: payload.sub,
         },
       });
+
+      //TODO: Return error if user not found
 
       return {
         user,
@@ -83,9 +83,8 @@ export class AuthService {
           expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
         }),
       };
-    } catch (error) {
-      console.log('error: ', error);
-      throw new UnauthorizedException('Invalid refresh token');
+    } catch {
+      Errors.throwError(ErrorString.InvalidRefreshToken);
     }
   }
 

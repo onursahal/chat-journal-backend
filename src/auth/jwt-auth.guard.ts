@@ -7,7 +7,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
-
+import { Errors } from 'src/errors';
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
   constructor(private jwtService: JwtService) {
@@ -26,8 +26,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
         secret: process.env.JWT_SECRET,
       });
       console.log(payload);
-    } catch {
-      throw new UnauthorizedException('Invalid token');
+    } catch (error) {
+      Errors.throwError(error.name);
     }
 
     return true;

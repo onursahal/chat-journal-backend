@@ -13,6 +13,13 @@ import { DbModule } from './db/db.module';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
+      formatError: (error) => ({
+        message: error.message,
+        extensions: {
+          exceptionType: error.extensions.exceptionType,
+          errorCode: error.extensions.errorCode,
+        },
+      }),
       playground: false,
       plugins: [ApolloServerPluginLandingPageLocalDefault()],
     }),
