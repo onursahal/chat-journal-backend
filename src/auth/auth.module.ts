@@ -14,8 +14,7 @@ import { LocalStrategy } from './strategies/local.strategy';
     JwtModule.register({
       global: true,
       secret: process.env.JWT_ACCESS_SECRET,
-      // signOptions: { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN },
-      signOptions: { expiresIn: '10s' },
+      signOptions: { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN },
     }),
     PassportModule,
   ],

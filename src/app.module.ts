@@ -6,10 +6,12 @@ import { UserModule } from './user/user.module';
 import { PromptModule } from './prompt/prompt.module';
 import { AuthModule } from './auth/auth.module';
 import { DbModule } from './db/db.module';
+import { ErrorModule } from './error/error.module';
 
 @Module({
   imports: [
     DbModule,
+    ErrorModule,
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,

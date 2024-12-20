@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { LoginArgs } from './dto/args/login.args';
 import * as bcrypt from 'bcrypt';
@@ -11,13 +7,14 @@ import { JwtService } from '@nestjs/jwt';
 import { ValidateUserArgs } from './dto/args/validate-user.args';
 import { VerifyRefreshTokenArgs } from './dto/args/verify-refresh-token.args';
 import { LoginResponse } from './dto/types/login-response.type';
-import { Errors, ErrorString } from 'src/errors';
+import { ErrorService, ErrorCode } from '../error/error.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prismaService: PrismaService,
     private jwtService: JwtService,
+    private errorService: ErrorService,
   ) {}
 
   async validateUser(data: ValidateUserArgs) {
@@ -29,17 +26,17 @@ export class AuthService {
       },
     });
 
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid)
-      throw new UnauthorizedException('Invalid credentials');
+      throw this.errorService.createError(ErrorCode.INVALID_CREDENTIALS);
 
     return { ...user, password: undefined };
   }
 
-  async login(data: LoginArgs) {
+  async login(data: LoginArgs): Promise<LoginResponse> {
     const { email, password } = data;
 
     const user = await this.validateUser({ email, password });
@@ -48,44 +45,37 @@ export class AuthService {
 
     return {
       user,
-      access_token: await this.jwtService.signAsync(payload),
-      refresh_token: await this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
-      }),
+      ...(await this.getTokensAsObject(payload)),
     };
   }
 
   async verifyRefreshToken(
     data: VerifyRefreshTokenArgs,
   ): Promise<LoginResponse> {
-    try {
-      const { refresh_token } = data;
-      const { sub, email } = await this.jwtService.verifyAsync(refresh_token, {
+    const { refresh_token } = data;
+
+    const { sub, email } = await this.jwtService
+      .verifyAsync(refresh_token, {
         secret: process.env.JWT_REFRESH_SECRET,
+      })
+      .catch((error) => {
+        throw this.errorService.handleJwtError(error, false);
       });
 
-      const payload = { sub, email };
+    const payload = { sub, email };
 
-      const user = await this.prismaService.user.findUnique({
-        where: {
-          id: payload.sub,
-        },
-      });
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: payload.sub,
+      },
+    });
 
-      //TODO: Return error if user not found
+    if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
 
-      return {
-        user,
-        access_token: await this.jwtService.signAsync(payload),
-        refresh_token: await this.jwtService.signAsync(payload, {
-          secret: process.env.JWT_REFRESH_SECRET,
-          expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
-        }),
-      };
-    } catch {
-      Errors.throwError(ErrorString.InvalidRefreshToken);
-    }
+    return {
+      user,
+      ...(await this.getTokensAsObject(payload)),
+    };
   }
 
   async createUser(data: CreateUserInput) {
@@ -96,7 +86,7 @@ export class AuthService {
     });
 
     if (existingUser)
-      throw new ConflictException('User with this email already exist');
+      throw this.errorService.createError(ErrorCode.USER_ALREADY_EXISTS);
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -115,5 +105,20 @@ export class AuthService {
         password: false,
       },
     });
+  }
+
+  private async getTokensAsObject(payload: { sub: string; email: string }) {
+    try {
+      const access_token = await this.jwtService.signAsync(payload);
+
+      const refresh_token = await this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+      });
+
+      return { access_token, refresh_token };
+    } catch {
+      throw this.errorService.createError(ErrorCode.TOKEN_SIGNING_ERROR);
+    }
   }
 }
