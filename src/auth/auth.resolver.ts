@@ -9,6 +9,7 @@ import { AuthService } from './auth.service';
 import { User } from '../user/user.model';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { JwtRefreshAuthGuard } from './jwt-refresh-auth.guard';
 
 @Resolver()
 export class AuthResolver {
@@ -20,6 +21,7 @@ export class AuthResolver {
     return this.authService.login(loginData);
   }
 
+  @UseGuards(JwtRefreshAuthGuard)
   @Query(() => LoginResponse)
   async verifyRefreshToken(
     @Args() verifyRefreshTokenArgs: VerifyRefreshTokenArgs,

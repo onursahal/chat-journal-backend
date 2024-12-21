@@ -5,6 +5,7 @@ import { UserService } from './user.service';
 import { GetUserArgs } from './dto/args/get-user.args';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Resolver(() => User)
 export class UserResolver {
   constructor(private userService: UserService) {}
