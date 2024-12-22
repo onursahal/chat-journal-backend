@@ -9,6 +9,13 @@ export class JwtRefreshAuthGuard extends AuthGuard('jwt-refresh') {
   }
   getRequest(context: ExecutionContext) {
     const ctx = GqlExecutionContext.create(context);
-    return ctx.getContext().req;
+    const request = ctx.getContext().req;
+    const args = ctx.getArgs();
+
+    request.body = {
+      refresh_token: args.refresh_token,
+    };
+
+    return request;
   }
 }

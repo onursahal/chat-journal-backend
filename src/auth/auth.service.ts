@@ -19,26 +19,6 @@ export class AuthService {
     private errorService: ErrorService,
   ) {}
 
-  async validateUser(data: ValidateUserArgs) {
-    const { email, password } = data;
-
-    const user = await this.prismaService.user.findUnique({
-      where: {
-        email,
-      },
-    });
-
-    if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
-
-    // TODO: add error handling for bcrypt
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid)
-      throw this.errorService.createError(ErrorCode.INVALID_CREDENTIALS);
-
-    return { ...user, password: undefined };
-  }
-
   async login(data: LoginArgs): Promise<LoginResponse> {
     const { email, password } = data;
 
@@ -49,36 +29,6 @@ export class AuthService {
     return {
       user,
       ...(await this.getTokensAsObject(payload)),
-    };
-  }
-
-  async verifyRefreshToken(
-    data: VerifyRefreshTokenArgs,
-  ): Promise<LoginResponse> {
-    this.logger.debug('Verifying refresh token');
-    const { refresh_token } = data;
-
-    const { sub, email } = await this.jwtService
-      .verifyAsync(refresh_token, {
-        secret: process.env.JWT_REFRESH_SECRET,
-      })
-      .catch((error) => {
-        throw this.errorService.handleJwtError(error, false);
-      });
-
-    const payload = { sub, email };
-
-    const user = await this.prismaService.user.findUnique({
-      where: {
-        id: payload.sub,
-      },
-    });
-
-    if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
-
-    return {
-      user,
-      ...(await this.getTokensAsObject(payload, refresh_token)),
     };
   }
 
@@ -109,6 +59,56 @@ export class AuthService {
         password: false,
       },
     });
+  }
+
+  async validateUser(data: ValidateUserArgs) {
+    const { email, password } = data;
+
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
+
+    // TODO: add error handling for bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid)
+      throw this.errorService.createError(ErrorCode.INVALID_CREDENTIALS);
+
+    return { ...user, password: undefined };
+  }
+
+  async verifyRefreshToken(
+    data: VerifyRefreshTokenArgs,
+  ): Promise<LoginResponse> {
+    this.logger.debug('Verifying refresh token');
+    const { refresh_token } = data;
+
+    const { sub, email } = await this.jwtService
+      .verifyAsync(refresh_token, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      })
+      .catch((error) => {
+        throw this.errorService.handleJwtError(error, false);
+      });
+
+    const payload = { sub, email };
+
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: payload.sub,
+      },
+    });
+
+    if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
+
+    return {
+      user,
+      ...(await this.getTokensAsObject(payload, refresh_token)),
+    };
   }
 
   private async generateRefreshToken(
