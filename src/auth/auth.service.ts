@@ -115,27 +115,33 @@ export class AuthService {
     payload: { sub: string; email: string },
     currentRefreshToken?: string,
   ) {
-    this.logger.debug('Current refresh token: ', currentRefreshToken);
+    this.logger.debug('Function generateRefreshToken initiated with args: ', {
+      payload,
+      currentRefreshToken,
+    });
     if (currentRefreshToken) {
       try {
-        this.logger.debug('Decoding current refresh token');
-        const { sub } = this.jwtService.decode(currentRefreshToken);
+        const activeRefreshToken = await this.prismaService.refreshToken
+          .findUnique({
+            where: {
+              id: currentRefreshToken,
+            },
+          })
+          .catch(() => {
+            throw this.errorService.createError(
+              ErrorCode.INVALID_REFRESH_TOKEN,
+            );
+          });
 
-        const currentUser = await this.prismaService.user.findUnique({
-          where: {
-            id: sub,
-          },
-          select: {
-            RefreshToken: true,
-          },
-        });
+        if (activeRefreshToken.expiresAt.valueOf() < Date.now()) {
+          await this.blacklistRefreshTokens(payload.sub);
+        }
 
-        const isCurrentTokenBlacklisted = currentUser.RefreshToken.some(
-          (tokenItem) => tokenItem.token === currentRefreshToken,
-        );
+        const isCurrentTokenBlacklisted = !activeRefreshToken.isActive;
 
-        if (isCurrentTokenBlacklisted)
+        if (isCurrentTokenBlacklisted) {
           throw this.errorService.createError(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
       } catch (error) {
         this.logger.debug('Error in verifyRefreshToken: ', error);
         if (error instanceof GraphQLError) {
@@ -146,6 +152,8 @@ export class AuthService {
       }
     }
 
+    await this.blacklistRefreshTokens(payload.sub);
+
     const refresh_token = await this.jwtService.signAsync(payload, {
       secret: process.env.JWT_REFRESH_SECRET,
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
@@ -155,7 +163,7 @@ export class AuthService {
 
     await this.prismaService.refreshToken.create({
       data: {
-        token: refresh_token,
+        id: refresh_token,
         expiresAt: new Date(exp * 1000),
         userId: payload.sub,
       },
@@ -169,7 +177,8 @@ export class AuthService {
     currentRefreshToken?: string,
   ) {
     try {
-      this.logger.debug('Generating tokens.');
+      this.logger.debug('Function getTokensAsObject initiated');
+
       const access_token = await this.jwtService.signAsync(payload);
 
       const refresh_token = await this.generateRefreshToken(
@@ -177,7 +186,7 @@ export class AuthService {
         currentRefreshToken,
       );
 
-      this.logger.debug('Refresh token created');
+      this.logger.debug('Token pair created');
 
       return { access_token, refresh_token };
     } catch (error) {
@@ -186,5 +195,17 @@ export class AuthService {
       }
       throw this.errorService.createError(ErrorCode.TOKEN_SIGNING_ERROR);
     }
+  }
+
+  private async blacklistRefreshTokens(userId: string) {
+    return await this.prismaService.refreshToken.updateMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+      },
+    });
   }
 }

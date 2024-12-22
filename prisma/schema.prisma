@@ -8,9 +8,9 @@ generator client {
 }
 
 model RefreshToken {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  token     String
+  id        String   @id @map("_id")
   expiresAt DateTime
+  isActive  Boolean  @default(true)
   userId    String   @db.ObjectId
   User      User     @relation(fields: [userId], references: [id])
 }
