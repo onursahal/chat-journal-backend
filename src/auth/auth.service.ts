@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { LoginArgs } from './dto/args/login.args';
 import * as bcrypt from 'bcrypt';
@@ -8,9 +8,11 @@ import { ValidateUserArgs } from './dto/args/validate-user.args';
 import { VerifyRefreshTokenArgs } from './dto/args/verify-refresh-token.args';
 import { LoginResponse } from './dto/types/login-response.type';
 import { ErrorService, ErrorCode } from '../error/error.service';
+import { GraphQLError } from 'graphql';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
     private prismaService: PrismaService,
     private jwtService: JwtService,
@@ -28,6 +30,7 @@ export class AuthService {
 
     if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
 
+    // TODO: add error handling for bcrypt
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid)
@@ -52,6 +55,7 @@ export class AuthService {
   async verifyRefreshToken(
     data: VerifyRefreshTokenArgs,
   ): Promise<LoginResponse> {
+    this.logger.debug('Verifying refresh token');
     const { refresh_token } = data;
 
     const { sub, email } = await this.jwtService
@@ -74,7 +78,7 @@ export class AuthService {
 
     return {
       user,
-      ...(await this.getTokensAsObject(payload)),
+      ...(await this.getTokensAsObject(payload, refresh_token)),
     };
   }
 
@@ -107,17 +111,79 @@ export class AuthService {
     });
   }
 
-  private async getTokensAsObject(payload: { sub: string; email: string }) {
+  private async generateRefreshToken(
+    payload: { sub: string; email: string },
+    currentRefreshToken?: string,
+  ) {
+    this.logger.debug('Current refresh token: ', currentRefreshToken);
+    if (currentRefreshToken) {
+      try {
+        this.logger.debug('Decoding current refresh token');
+        const { sub } = this.jwtService.decode(currentRefreshToken);
+
+        const currentUser = await this.prismaService.user.findUnique({
+          where: {
+            id: sub,
+          },
+          select: {
+            RefreshToken: true,
+          },
+        });
+
+        const isCurrentTokenBlacklisted = currentUser.RefreshToken.some(
+          (tokenItem) => tokenItem.token === currentRefreshToken,
+        );
+
+        if (isCurrentTokenBlacklisted)
+          throw this.errorService.createError(ErrorCode.INVALID_REFRESH_TOKEN);
+      } catch (error) {
+        this.logger.debug('Error in verifyRefreshToken: ', error);
+        if (error instanceof GraphQLError) {
+          throw error;
+        }
+
+        throw this.errorService.handleJwtError(error, false);
+      }
+    }
+
+    const refresh_token = await this.jwtService.signAsync(payload, {
+      secret: process.env.JWT_REFRESH_SECRET,
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+    });
+
+    const { exp } = this.jwtService.decode(refresh_token);
+
+    await this.prismaService.refreshToken.create({
+      data: {
+        token: refresh_token,
+        expiresAt: new Date(exp * 1000),
+        userId: payload.sub,
+      },
+    });
+
+    return refresh_token;
+  }
+
+  private async getTokensAsObject(
+    payload: { sub: string; email: string },
+    currentRefreshToken?: string,
+  ) {
     try {
+      this.logger.debug('Generating tokens.');
       const access_token = await this.jwtService.signAsync(payload);
 
-      const refresh_token = await this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
-      });
+      const refresh_token = await this.generateRefreshToken(
+        payload,
+        currentRefreshToken,
+      );
+
+      this.logger.debug('Refresh token created');
 
       return { access_token, refresh_token };
-    } catch {
+    } catch (error) {
+      if (error instanceof GraphQLError) {
+        throw error;
+      }
       throw this.errorService.createError(ErrorCode.TOKEN_SIGNING_ERROR);
     }
   }

@@ -7,15 +7,24 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model User {
+model RefreshToken {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  firstName String?
-  lastName  String?
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  Prompt    Prompt[]
+  token     String
+  expiresAt DateTime
+  userId    String   @db.ObjectId
+  User      User     @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  firstName    String?
+  lastName     String?
+  email        String         @unique
+  password     String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  Prompt       Prompt[]
+  RefreshToken RefreshToken[]
 }
 
 model Prompt {
