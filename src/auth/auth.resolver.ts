@@ -5,8 +5,8 @@ import { CreateUserInput } from './dto/inputs/create-user.input';
 import { LoginResponse } from './dto/types/login-response.type';
 import { AuthService } from './auth.service';
 import { User } from '../user/user.model';
-import { LocalAuthGuard } from './local-auth.guard';
-import { JwtRefreshAuthGuard } from './jwt-refresh-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
+import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard';
 import { Logger } from '@nestjs/common';
 @Resolver()
 export class AuthResolver {

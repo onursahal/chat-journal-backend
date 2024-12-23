@@ -3,7 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { User } from './user.model';
 import { UserService } from './user.service';
 import { GetUserArgs } from './dto/args/get-user.args';
-import { JwtAccessAuthGuard } from 'src/auth/jwt-access-auth.guard';
+import { JwtAccessAuthGuard } from 'src/auth/guards/jwt-access-auth.guard';
 
 @Resolver(() => User)
 export class UserResolver {

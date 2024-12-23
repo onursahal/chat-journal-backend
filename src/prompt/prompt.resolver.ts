@@ -1,6 +1,6 @@
 import { Resolver, Query, Args, Mutation } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { JwtAccessAuthGuard } from 'src/auth/jwt-access-auth.guard';
+import { JwtAccessAuthGuard } from 'src/auth/guards/jwt-access-auth.guard';
 import { Prompt } from './prompt.model';
 import { PromptService } from './prompt.service';
 import { GetAllPromptsWithUserIdArgs } from './dto/args/get-all-prompts-with-user-id.args';
