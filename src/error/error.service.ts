@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   JsonWebTokenError,
   NotBeforeError,
@@ -100,6 +100,7 @@ export interface ErrorDetail {
 
 @Injectable()
 export class ErrorService {
+  private readonly logger = new Logger(ErrorService.name);
   createError(errorCode: ErrorCode) {
     const { message, extensions } = errorDetails[errorCode];
 
@@ -113,13 +114,10 @@ export class ErrorService {
     return new GraphQLError(message, { extensions });
   }
   handleJwtError(error: Error, isAccessToken: boolean) {
-    if (error instanceof JsonWebTokenError) {
-      return this.createError(
-        isAccessToken
-          ? ErrorCode.INVALID_ACCESS_TOKEN
-          : ErrorCode.INVALID_REFRESH_TOKEN,
-      );
-    }
+    this.logger.debug(
+      'handleJwtError: initiated with error: ',
+      error instanceof TokenExpiredError,
+    );
     if (error instanceof TokenExpiredError || error instanceof NotBeforeError) {
       return this.createError(
         isAccessToken
@@ -127,6 +125,14 @@ export class ErrorService {
           : ErrorCode.REFRESH_TOKEN_EXPIRED,
       );
     }
+    if (error instanceof JsonWebTokenError) {
+      return this.createError(
+        isAccessToken
+          ? ErrorCode.INVALID_ACCESS_TOKEN
+          : ErrorCode.INVALID_REFRESH_TOKEN,
+      );
+    }
+
     return this.createError(ErrorCode.SOMETHING_WENT_WRONG);
   }
 }

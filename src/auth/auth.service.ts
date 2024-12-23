@@ -109,20 +109,32 @@ export class AuthService {
     }
   }
 
-  async validateAccessToken(payload: { sub: string; email: string }) {
-    const { sub: userId } = payload;
+  async validateAccessToken(payload: {
+    sub: string;
+    email: string;
+    exp: number;
+  }) {
+    try {
+      const { sub: userId } = payload;
 
-    const user = await this.prismaService.user.findUnique({
-      where: {
-        id: userId,
-      },
-    });
+      const user = await this.prismaService.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
 
-    if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
+      if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
 
-    this.logger.debug('validateAccessToken: jwt access token validated');
+      this.logger.debug('validateAccessToken: jwt access token validated');
 
-    return true;
+      return true;
+    } catch (error) {
+      this.logger.debug('Error in validateAccessToken: ', error);
+      if (error instanceof GraphQLError) {
+        throw error;
+      }
+      throw this.errorService.handleJwtError(error, true);
+    }
   }
 
   async validateUser(payload: { email: string; password: string }) {
