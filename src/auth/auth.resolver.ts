@@ -1,40 +1,41 @@
 import { UseGuards } from '@nestjs/common';
-import { Resolver, Query, Args, Mutation } from '@nestjs/graphql';
+import { Resolver, Query, Args, Mutation, Context } from '@nestjs/graphql';
 import { LoginArgs } from './dto/args/login.args';
 import { CreateUserInput } from './dto/inputs/create-user.input';
 import { LoginResponse } from './dto/types/login-response.type';
-import { ValidateUserArgs } from './dto/args/validate-user.args';
-import { VerifyRefreshTokenArgs } from './dto/args/verify-refresh-token.args';
 import { AuthService } from './auth.service';
 import { User } from '../user/user.model';
 import { LocalAuthGuard } from './local-auth.guard';
-import { JwtAuthGuard } from './jwt-auth.guard';
 import { JwtRefreshAuthGuard } from './jwt-refresh-auth.guard';
-
+import { Logger } from '@nestjs/common';
 @Resolver()
 export class AuthResolver {
+  private readonly logger = new Logger(AuthResolver.name);
   constructor(private authService: AuthService) {}
 
   @UseGuards(LocalAuthGuard)
   @Query(() => LoginResponse)
-  async login(@Args() loginData: LoginArgs): Promise<LoginResponse> {
-    return this.authService.login(loginData);
+  async login(
+    @Args() loginData: LoginArgs,
+    @Context() context: any,
+  ): Promise<LoginResponse> {
+    this.logger.debug(
+      'login resolver: initiated with email: ',
+      loginData.email,
+    );
+    const user = context.req.user;
+    return this.authService.login(user.id, user.email);
   }
 
   @UseGuards(JwtRefreshAuthGuard)
   @Query(() => LoginResponse)
-  async verifyRefreshToken(
-    @Args() verifyRefreshTokenArgs: VerifyRefreshTokenArgs,
-  ): Promise<LoginResponse> {
-    return this.authService.verifyRefreshToken(verifyRefreshTokenArgs);
+  async getTokenPairWithRefreshToken(
+    @Args('currentRefreshToken') currentRefreshToken: string,
+  ): Promise<{ access_token: string; refresh_token: string }> {
+    return this.authService.getTokenPairWithRefreshToken(currentRefreshToken);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Query(() => User)
-  async validateUser(@Args() validateUserArgs: ValidateUserArgs) {
-    return this.authService.validateUser(validateUserArgs);
-  }
-
+  // TODO: Check which guard needs to be used here
   @Mutation(() => User, { name: 'createUser' })
   async createUser(@Args('createUserData') createUserData: CreateUserInput) {
     return this.authService.createUser(createUserData);

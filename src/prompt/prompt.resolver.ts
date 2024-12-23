@@ -1,6 +1,6 @@
 import { Resolver, Query, Args, Mutation } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { JwtAccessAuthGuard } from 'src/auth/jwt-access-auth.guard';
 import { Prompt } from './prompt.model';
 import { PromptService } from './prompt.service';
 import { GetAllPromptsWithUserIdArgs } from './dto/args/get-all-prompts-with-user-id.args';
@@ -11,7 +11,7 @@ import { GetAllPromptsWithConversationIdArgs } from './dto/args/get-all-prompts-
 export class PromptResolver {
   constructor(private promptService: PromptService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAccessAuthGuard)
   @Query(() => [Prompt])
   async getAllPromptsWithUserId(
     @Args()
@@ -20,7 +20,7 @@ export class PromptResolver {
     return this.promptService.findAllByUserId(getAllPromptsWithUserIdArgs);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAccessAuthGuard)
   @Query(() => [Prompt])
   async getAllPromptsWithConversationId(
     @Args()
@@ -31,7 +31,7 @@ export class PromptResolver {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAccessAuthGuard)
   @Mutation(() => Prompt)
   async createPrompt(
     @Args('createPromptInput') createPromptInput: CreatePromptInput,

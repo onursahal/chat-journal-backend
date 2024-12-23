@@ -1,9 +1,11 @@
 import { Injectable, ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { GqlExecutionContext } from '@nestjs/graphql';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class JwtRefreshAuthGuard extends AuthGuard('jwt-refresh') {
+  private readonly logger = new Logger(JwtRefreshAuthGuard.name);
   constructor() {
     super();
   }
@@ -13,9 +15,9 @@ export class JwtRefreshAuthGuard extends AuthGuard('jwt-refresh') {
     const args = ctx.getArgs();
 
     request.body = {
-      refresh_token: args.refresh_token,
+      currentRefreshToken: args.currentRefreshToken,
     };
-
+    this.logger.debug('getRequest: request body: ', request.body);
     return request;
   }
 }
