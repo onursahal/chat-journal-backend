@@ -2,37 +2,42 @@ import { UseGuards } from '@nestjs/common';
 import { Resolver, Query, Args, Mutation, Context } from '@nestjs/graphql';
 import { LoginArgs } from './dto/args/login.args';
 import { CreateUserInput } from './dto/inputs/create-user.input';
-import { LoginResponse } from './dto/types/login-response.type';
+import { GetTokenPairResponse } from './dto/types/get-token-pair-response.type';
 import { AuthService } from './auth.service';
 import { User } from '../user/user.model';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard';
 import { Logger } from '@nestjs/common';
+import { TokenService } from './token.service';
+import { TokenPair } from './interfaces/token.interface';
 @Resolver()
 export class AuthResolver {
   private readonly logger = new Logger(AuthResolver.name);
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private tokenService: TokenService,
+  ) {}
 
   @UseGuards(LocalAuthGuard)
-  @Query(() => LoginResponse)
+  @Query(() => GetTokenPairResponse)
   async login(
     @Args() loginData: LoginArgs,
     @Context() context: any,
-  ): Promise<LoginResponse> {
+  ): Promise<TokenPair> {
     this.logger.debug(
       'login resolver: initiated with email: ',
       loginData.email,
     );
     const user = context.req.user;
-    return this.authService.login(user.id, user.email);
+    return this.authService.login({ sub: user.id, email: user.email });
   }
 
   @UseGuards(JwtRefreshAuthGuard)
-  @Query(() => LoginResponse)
-  async getTokenPairWithRefreshToken(
+  @Query(() => GetTokenPairResponse)
+  async getTokenPair(
     @Args('currentRefreshToken') currentRefreshToken: string,
-  ): Promise<{ access_token: string; refresh_token: string }> {
-    return this.authService.getTokenPairWithRefreshToken(currentRefreshToken);
+  ): Promise<TokenPair> {
+    return this.tokenService.getTokenPair({ currentRefreshToken });
   }
 
   // TODO: Check which guard needs to be used here

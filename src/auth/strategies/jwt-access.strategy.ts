@@ -20,10 +20,6 @@ export class JwtAccessStrategy extends PassportStrategy(
   }
 
   async validate(payload: { sub: string; email: string; exp: number }) {
-    try {
-      return await this.authService.validateAccessToken(payload);
-    } catch (error) {
-      throw this.errorService.handleJwtError(error, true);
-    }
+    return await this.authService.validateUserFromAccessToken(payload);
   }
 }

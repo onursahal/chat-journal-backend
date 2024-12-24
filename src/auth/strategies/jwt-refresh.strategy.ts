@@ -1,8 +1,7 @@
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
-
 import { Injectable, Logger } from '@nestjs/common';
-import { AuthService } from '../auth.service';
+import { TokenService } from '../token.service';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
@@ -10,7 +9,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
   'jwt-refresh',
 ) {
   private readonly logger = new Logger(JwtRefreshStrategy.name);
-  constructor(private authService: AuthService) {
+  constructor(private tokenService: TokenService) {
     super({
       jwtFromRequest: ExtractJwt.fromBodyField('currentRefreshToken'),
       secretOrKey: process.env.JWT_REFRESH_SECRET,
@@ -23,6 +22,6 @@ export class JwtRefreshStrategy extends PassportStrategy(
       'refresh strategy validate: initiated with payload: ',
       payload,
     );
-    return this.authService.validateRefreshToken(payload);
+    return this.tokenService.validateRefreshToken(payload);
   }
 }
