@@ -10,6 +10,7 @@ export enum ErrorType {
   AUTH = 'AUTH',
   USER = 'USER',
   UNEXPECTED = 'UNEXPECTED',
+  PRISMA = 'PRISMA',
 }
 
 export enum ErrorCode {
@@ -22,7 +23,33 @@ export enum ErrorCode {
   USER_ALREADY_EXISTS = 'USER_ALREADY_EXISTS',
   SOMETHING_WENT_WRONG = 'SOMETHING_WENT_WRONG',
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  MALFORMED_USER_ID = 'MALFORMED_USER_ID',
+  FOREIGN_KEY_VIOLATION = 'FOREIGN_KEY_VIOLATION',
+  RECORD_NOT_FOUND = 'RECORD_NOT_FOUND',
+  INVALID_DATA_TYPE = 'INVALID_DATA_TYPE',
+  REQUIRED_FIELD_MISSING = 'REQUIRED_FIELD_MISSING',
+  RELATION_NOT_FOUND = 'RELATION_NOT_FOUND',
+  DATABASE_CONNECT_ERROR = 'DATABASE_CONNECT_ERROR',
+  INVALID_FIELD_VALUE = 'INVALID_FIELD_VALUE',
+  NULL_CONSTRAINT_VIOLATION = 'NULL_CONSTRAINT_VIOLATION',
+  TABLE_NOT_FOUND = 'TABLE_NOT_FOUND',
+  COLUMN_NOT_FOUND = 'COLUMN_NOT_FOUND',
 }
+
+const prismaErrorCodeMap = {
+  P2002: ErrorCode.USER_ALREADY_EXISTS,
+  P2003: ErrorCode.FOREIGN_KEY_VIOLATION,
+  P2023: ErrorCode.MALFORMED_USER_ID,
+  P2025: ErrorCode.RECORD_NOT_FOUND,
+  P2000: ErrorCode.INVALID_DATA_TYPE,
+  P2005: ErrorCode.INVALID_FIELD_VALUE,
+  P2006: ErrorCode.INVALID_DATA_TYPE,
+  P2011: ErrorCode.NULL_CONSTRAINT_VIOLATION,
+  P2012: ErrorCode.REQUIRED_FIELD_MISSING,
+  P2015: ErrorCode.RELATION_NOT_FOUND,
+  P2021: ErrorCode.TABLE_NOT_FOUND,
+  P2022: ErrorCode.COLUMN_NOT_FOUND,
+};
 
 const errorDetails: Record<ErrorCode, ErrorDetail> = {
   [ErrorCode.ACCESS_TOKEN_EXPIRED]: {
@@ -81,6 +108,83 @@ const errorDetails: Record<ErrorCode, ErrorDetail> = {
       errorCode: ErrorCode.INVALID_CREDENTIALS,
     },
   },
+  [ErrorCode.MALFORMED_USER_ID]: {
+    message: 'This user id is not valid',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.MALFORMED_USER_ID,
+    },
+  },
+  [ErrorCode.FOREIGN_KEY_VIOLATION]: {
+    message: 'Referenced record does not exist',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.FOREIGN_KEY_VIOLATION,
+    },
+  },
+  [ErrorCode.RECORD_NOT_FOUND]: {
+    message: 'Record not found',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.RECORD_NOT_FOUND,
+    },
+  },
+  [ErrorCode.INVALID_DATA_TYPE]: {
+    message: 'Invalid data type provided',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.INVALID_DATA_TYPE,
+    },
+  },
+  [ErrorCode.REQUIRED_FIELD_MISSING]: {
+    message: 'Required field is missing',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.REQUIRED_FIELD_MISSING,
+    },
+  },
+  [ErrorCode.RELATION_NOT_FOUND]: {
+    message: 'Related record not found',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.RELATION_NOT_FOUND,
+    },
+  },
+  [ErrorCode.DATABASE_CONNECT_ERROR]: {
+    message: 'Database connection error',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.DATABASE_CONNECT_ERROR,
+    },
+  },
+  [ErrorCode.INVALID_FIELD_VALUE]: {
+    message: 'Invalid value for field',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.INVALID_FIELD_VALUE,
+    },
+  },
+  [ErrorCode.NULL_CONSTRAINT_VIOLATION]: {
+    message: 'Field cannot be null',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.NULL_CONSTRAINT_VIOLATION,
+    },
+  },
+  [ErrorCode.TABLE_NOT_FOUND]: {
+    message: 'Database table not found',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.TABLE_NOT_FOUND,
+    },
+  },
+  [ErrorCode.COLUMN_NOT_FOUND]: {
+    message: 'Database column not found',
+    extensions: {
+      type: ErrorType.PRISMA,
+      errorCode: ErrorCode.COLUMN_NOT_FOUND,
+    },
+  },
   [ErrorCode.SOMETHING_WENT_WRONG]: {
     message: 'An error occurred',
     extensions: {
@@ -134,5 +238,11 @@ export class ErrorService {
     }
 
     return this.createError(ErrorCode.SOMETHING_WENT_WRONG);
+  }
+  handlePrismaError(prismaErrorCode: keyof typeof prismaErrorCodeMap) {
+    if (!Object.keys(prismaErrorCodeMap).some((key) => key === prismaErrorCode))
+      return this.createError(ErrorCode.SOMETHING_WENT_WRONG);
+
+    return this.createError(prismaErrorCodeMap[prismaErrorCode]);
   }
 }

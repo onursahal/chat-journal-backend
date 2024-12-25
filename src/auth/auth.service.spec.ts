@@ -21,6 +21,7 @@ describe('AuthService', () => {
 
   const mockPrismaService = {
     user: {
+      findUniqueOrThrow: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
     },
@@ -28,6 +29,7 @@ describe('AuthService', () => {
 
   const mockErrorService = {
     createError: jest.fn(),
+    handlePrismaError: jest.fn(),
   };
 
   const mockTokenPair: TokenPair = {
@@ -159,26 +161,41 @@ describe('AuthService', () => {
         },
       });
 
-      mockErrorService.createError.mockReturnValue(userAlreadyExistError);
-
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockErrorService.createError.mockReturnValue(userAlreadyExistError);
 
       await expect(authService.createUser(mockCreateUserData)).rejects.toThrow(
         userAlreadyExistError,
+      );
+    });
+    it('should throw an error if prisma create fails', async () => {
+      const prismaCreateError = new GraphQLError('Prisma create error', {
+        extensions: {
+          errorCode: ErrorCode.DATABASE_CONNECT_ERROR,
+        },
+      });
+
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      mockPrismaService.user.create.mockRejectedValue(prismaCreateError);
+      mockErrorService.handlePrismaError.mockReturnValue(prismaCreateError);
+
+      await expect(authService.createUser(mockCreateUserData)).rejects.toThrow(
+        prismaCreateError,
       );
     });
   });
 
   describe('validateUserFromAccessToken', () => {
     it('should return true', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.user.findUniqueOrThrow.mockResolvedValue(mockUser);
 
       const result = await authService.validateUserFromAccessToken(mockPayload);
 
       expect(result).toBe(true);
-      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.user.findUniqueOrThrow).toHaveBeenCalledWith({
         where: {
-          email: mockPayload.email,
+          id: mockPayload.sub,
         },
       });
     });
@@ -194,8 +211,10 @@ describe('AuthService', () => {
         },
       });
 
-      mockErrorService.createError.mockReturnValue(userNotFoundError);
-      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockErrorService.handlePrismaError.mockReturnValue(userNotFoundError);
+      mockPrismaService.user.findUniqueOrThrow.mockRejectedValue(
+        userNotFoundError,
+      );
 
       await expect(
         authService.validateUserFromAccessToken(mockPayload),
@@ -204,7 +223,9 @@ describe('AuthService', () => {
   });
   describe('validateUser', () => {
     it('should return user', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue(mockPrismaUser);
+      mockPrismaService.user.findUniqueOrThrow.mockResolvedValue(
+        mockPrismaUser,
+      );
 
       // TODO: Define bcrypt as a module
       const compareSpy = jest.spyOn(
@@ -219,7 +240,7 @@ describe('AuthService', () => {
       const result = await authService.validateUser(mockUserCredentials);
 
       expect(result).toEqual({ ...mockPrismaUser, password: undefined });
-      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.user.findUniqueOrThrow).toHaveBeenCalledWith({
         where: {
           email: mockUserCredentials.email,
         },
@@ -236,8 +257,10 @@ describe('AuthService', () => {
         },
       });
 
-      mockErrorService.createError.mockReturnValue(userNotFoundError);
-      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockErrorService.handlePrismaError.mockReturnValue(userNotFoundError);
+      mockPrismaService.user.findUniqueOrThrow.mockRejectedValue(
+        userNotFoundError,
+      );
 
       await expect(
         authService.validateUser(mockUserCredentials),
@@ -250,7 +273,9 @@ describe('AuthService', () => {
         },
       });
 
-      mockPrismaService.user.findUnique.mockResolvedValue(mockPrismaUser);
+      mockPrismaService.user.findUniqueOrThrow.mockResolvedValue(
+        mockPrismaUser,
+      );
       mockErrorService.createError.mockReturnValue(invalidCredentialsError);
       // TODO: Define bcrypt as a module
       const compareSpy = jest.spyOn(

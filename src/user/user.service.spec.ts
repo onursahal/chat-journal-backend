@@ -1,3 +1,4 @@
+import { ErrorService } from '../error/error.service';
 import { PrismaService } from '../db/prisma.service';
 import { UserService } from './user.service';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -5,12 +6,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 describe('UserService', () => {
   let userService: UserService;
   let prismaService: PrismaService;
+  let errorService: ErrorService;
 
   const mockPrismaService = {
     user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
     },
+  };
+
+  const mockErrorService = {
+    handlePrismaError: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -18,16 +23,19 @@ describe('UserService', () => {
       providers: [
         UserService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: ErrorService, useValue: mockErrorService },
       ],
     }).compile();
 
     userService = module.get<UserService>(UserService);
     prismaService = module.get<PrismaService>(PrismaService);
+    errorService = module.get<ErrorService>(ErrorService);
   });
 
   it('should be defined', () => {
     expect(userService).toBeDefined();
     expect(prismaService).toBeDefined();
+    expect(errorService).toBeDefined();
   });
 
   describe('findOneById', () => {
@@ -41,47 +49,14 @@ describe('UserService', () => {
         updatedAt: new Date(),
       };
 
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.user.findUniqueOrThrow.mockResolvedValue(mockUser);
 
       const result = await userService.findOneById({ id: '1' });
 
       expect(result).toEqual(mockUser);
-      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+      expect(prismaService.user.findUniqueOrThrow).toHaveBeenCalledWith({
         where: { id: '1' },
       });
     });
   });
-
-  //TODO: This test should be in auth service
-
-  // describe('createUser', () => {
-  //   it('should create a user', async () => {
-  //     const mockCreateUserArgs = {
-  //       firstName: 'John',
-  //       lastName: 'Doe',
-  //       email: 'john.doe@example.com',
-  //     };
-
-  //     const mockUser = {
-  //       id: 'mock-id',
-  //       firstName: 'John',
-  //       lastName: 'Doe',
-  //       email: 'john.doe@example.com',
-  //       createdAt: new Date(),
-  //       updatedAt: new Date(),
-  //     };
-
-  //     mockPrismaService.user.create.mockResolvedValue(mockUser);
-  //     const result = await userService.createUser(mockCreateUserArgs);
-
-  //     expect(result).toEqual(mockUser);
-  //     expect(prismaService.user.create).toHaveBeenCalledWith({
-  //       data: mockCreateUserArgs,
-  //     });
-  //   });
-  // });
 });
-
-//TODO: Add test for creating user with only required fields (email)
-//TODO: Add test for handling database errors
-//TODO: Refactor test data into beforeEach for better maintainability

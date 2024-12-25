@@ -26,44 +26,54 @@ export class AuthService {
   async createUser(data: CreateUser): Promise<User> {
     const { email, password } = data;
 
-    const existingUser = await this.prismaService.user.findUnique({
+    const isUserAlreadyExists = await this.prismaService.user.findUnique({
       where: { email },
     });
 
-    if (existingUser)
+    if (!!isUserAlreadyExists)
       throw this.errorService.createError(ErrorCode.USER_ALREADY_EXISTS);
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     this.logger.debug('createUser: user created');
-    return this.prismaService.user.create({
-      data: {
-        ...data,
-        password: hashedPassword,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        createdAt: true,
-        updatedAt: true,
-        password: false,
-      },
-    });
+
+    const createdUser = await this.prismaService.user
+      .create({
+        data: {
+          ...data,
+          password: hashedPassword,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          createdAt: true,
+          updatedAt: true,
+          password: false,
+        },
+      })
+      .catch((error) => {
+        this.logger.debug('createUser: error creating user', error);
+        throw this.errorService.handlePrismaError(error.code);
+      });
+
+    return createdUser;
   }
 
   async validateUserFromAccessToken(payload: TokenPayload) {
     try {
       const { sub: userId } = payload;
 
-      const user = await this.prismaService.user.findUnique({
-        where: {
-          id: userId,
-        },
-      });
-
-      if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
+      await this.prismaService.user
+        .findUniqueOrThrow({
+          where: {
+            id: userId,
+          },
+        })
+        .catch((error) => {
+          throw this.errorService.handlePrismaError(error.code);
+        });
 
       this.logger.debug(
         'validateUserFromAccessToken: jwt access token validated',
@@ -79,13 +89,15 @@ export class AuthService {
 
   async validateUser(payload: UserCredentials): Promise<User> {
     const { email, password } = payload;
-    const user = await this.prismaService.user.findUnique({
-      where: {
-        email,
-      },
-    });
-
-    if (!user) throw this.errorService.createError(ErrorCode.USER_NOT_FOUND);
+    const user = await this.prismaService.user
+      .findUniqueOrThrow({
+        where: {
+          email,
+        },
+      })
+      .catch((error) => {
+        throw this.errorService.handlePrismaError(error.code);
+      });
 
     this.logger.debug('validateUser: user found');
 
