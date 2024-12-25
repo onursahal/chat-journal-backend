@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from 'src/db/prisma.service';
-import { ErrorService, ErrorCode } from 'src/error/error.service';
+import { PrismaService } from '../db/prisma.service';
+import { ErrorService, ErrorCode } from '../error/error.service';
 import { GraphQLError } from 'graphql';
 import {
   GenerateTokenArgs,

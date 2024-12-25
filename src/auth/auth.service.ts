@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { ErrorService, ErrorCode } from '../error/error.service';
-import { GraphQLError } from 'graphql';
 import { TokenService } from './token.service';
 import { TokenPair, TokenPayload } from './interfaces/token.interface';
 import { CreateUser, UserCredentials } from './interfaces/auth.interface';
@@ -73,10 +72,8 @@ export class AuthService {
       return true;
     } catch (error) {
       this.logger.debug('Error in validateUserFromAccessToken: ', error);
-      if (error instanceof GraphQLError) {
-        throw error;
-      }
-      throw this.errorService.handleJwtError(error, true);
+
+      throw error;
     }
   }
 
