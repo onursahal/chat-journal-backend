@@ -28,7 +28,6 @@ describe('AuthService', () => {
 
   const mockErrorService = {
     createError: jest.fn(),
-    handleJwtError: jest.fn(),
   };
 
   const mockTokenPair: TokenPair = {

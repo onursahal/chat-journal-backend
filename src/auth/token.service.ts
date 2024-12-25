@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../db/prisma.service';
 import { ErrorService, ErrorCode } from '../error/error.service';
-import { GraphQLError } from 'graphql';
 import {
   GenerateTokenArgs,
+  RefreshToken,
   TokenPair,
   TokenPayload,
 } from './interfaces/token.interface';
@@ -23,7 +23,8 @@ export class TokenService {
     currentRefreshToken,
   }: GenerateTokenArgs): Promise<TokenPair> {
     const { sub: userId, email } =
-      this.jwtService.decode(currentRefreshToken) || payload;
+      (currentRefreshToken && this.jwtService.decode(currentRefreshToken)) ||
+      payload;
     try {
       this.logger.debug('getTokenPair: initiated');
 
@@ -40,10 +41,7 @@ export class TokenService {
       this.logger.debug('getTokenPair: token pair created');
 
       return { access_token, refresh_token };
-    } catch (error) {
-      if (error instanceof GraphQLError) {
-        throw error;
-      }
+    } catch {
       throw this.errorService.createError(ErrorCode.TOKEN_SIGNING_ERROR);
     }
   }
@@ -51,16 +49,19 @@ export class TokenService {
   async validateRefreshToken(payload: TokenPayload): Promise<User> {
     const { sub: userId } = payload;
     try {
-      const activeRefreshToken = await this.prismaService.refreshToken
-        .findFirst({
-          where: {
-            userId,
-            isActive: true,
-          },
-        })
-        .catch(() => {
-          throw this.errorService.createError(ErrorCode.INVALID_REFRESH_TOKEN);
-        });
+      const activeRefreshToken: RefreshToken =
+        await this.prismaService.refreshToken
+          .findFirst({
+            where: {
+              userId,
+              isActive: true,
+            },
+          })
+          .catch(() => {
+            throw this.errorService.createError(
+              ErrorCode.INVALID_REFRESH_TOKEN,
+            );
+          });
 
       if (!activeRefreshToken)
         throw this.errorService.createError(ErrorCode.INVALID_REFRESH_TOKEN);
@@ -86,20 +87,17 @@ export class TokenService {
       });
     } catch (error) {
       this.logger.debug('Error in verifyRefreshToken: ', error);
-      if (error instanceof GraphQLError) {
-        throw error;
-      }
-
-      throw this.errorService.handleJwtError(error, false);
+      throw error;
     }
   }
 
-  private async generateRefreshToken({
+  async generateRefreshToken({
     payload,
     currentRefreshToken,
   }: GenerateTokenArgs): Promise<string> {
     const { sub: userId, email } =
-      this.jwtService.decode(currentRefreshToken) || payload;
+      (currentRefreshToken && this.jwtService.decode(currentRefreshToken)) ||
+      payload;
 
     this.logger.debug('generateRefreshToken: initiated with args: ', {
       userId,
@@ -119,22 +117,21 @@ export class TokenService {
 
     const { exp } = this.jwtService.decode(refresh_token);
 
-    await this.prismaService.refreshToken
-      .create({
-        data: {
-          id: refresh_token,
-          expiresAt: new Date(exp * 1000),
-          userId,
-        },
-      })
-      .catch((error) => {
-        throw error;
-      });
+    await this.prismaService.refreshToken.create({
+      data: {
+        id: refresh_token,
+        expiresAt: new Date(exp * 1000),
+        userId,
+      },
+    });
+    // .catch((error) => {
+    //   throw error;
+    // });
     this.logger.debug('generateRefreshToken: refresh token created');
     return refresh_token;
   }
 
-  private async blacklistRefreshTokens(userId: string) {
+  async blacklistRefreshTokens(userId: string) {
     return await this.prismaService.refreshToken
       .updateMany({
         where: {
