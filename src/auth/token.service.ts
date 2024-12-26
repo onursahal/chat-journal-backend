@@ -51,20 +51,15 @@ export class TokenService {
     try {
       const activeRefreshToken: RefreshToken =
         await this.prismaService.refreshToken
-          .findFirst({
+          .findFirstOrThrow({
             where: {
               userId,
               isActive: true,
             },
           })
-          .catch(() => {
-            throw this.errorService.createError(
-              ErrorCode.INVALID_REFRESH_TOKEN,
-            );
+          .catch((error) => {
+            throw this.errorService.handlePrismaError(error.code);
           });
-
-      if (!activeRefreshToken)
-        throw this.errorService.createError(ErrorCode.INVALID_REFRESH_TOKEN);
 
       this.logger.debug(
         'validateRefreshToken: activeRefreshToken ',
@@ -80,11 +75,15 @@ export class TokenService {
         throw this.errorService.createError(ErrorCode.INVALID_REFRESH_TOKEN);
       }
 
-      return this.prismaService.user.findUnique({
-        where: {
-          id: userId,
-        },
-      });
+      return await this.prismaService.user
+        .findUniqueOrThrow({
+          where: {
+            id: userId,
+          },
+        })
+        .catch((error) => {
+          throw this.errorService.handlePrismaError(error.code);
+        });
     } catch (error) {
       this.logger.debug('Error in verifyRefreshToken: ', error);
       throw error;
@@ -107,26 +106,33 @@ export class TokenService {
 
     await this.blacklistRefreshTokens(userId);
 
-    const refresh_token = await this.jwtService.signAsync(
-      { sub: userId, email },
-      {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
-      },
-    );
+    const refresh_token = await this.jwtService
+      .signAsync(
+        { sub: userId, email },
+        {
+          secret: process.env.JWT_REFRESH_SECRET,
+          expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+        },
+      )
+      .catch(() => {
+        throw this.errorService.createError(ErrorCode.TOKEN_SIGNING_ERROR);
+      });
 
-    const { exp } = this.jwtService.decode(refresh_token);
+    const { exp } = await this.jwtService.decode(refresh_token);
 
-    await this.prismaService.refreshToken.create({
-      data: {
-        id: refresh_token,
-        expiresAt: new Date(exp * 1000),
-        userId,
-      },
-    });
-    // .catch((error) => {
-    //   throw error;
-    // });
+    this.logger.debug('generateRefreshToken: exp: ', exp);
+
+    await this.prismaService.refreshToken
+      .create({
+        data: {
+          id: refresh_token,
+          expiresAt: new Date(exp * 1000),
+          userId,
+        },
+      })
+      .catch((error) => {
+        throw this.errorService.handlePrismaError(error.code);
+      });
     this.logger.debug('generateRefreshToken: refresh token created');
     return refresh_token;
   }
@@ -143,7 +149,7 @@ export class TokenService {
         },
       })
       .catch((error) => {
-        throw error;
+        throw this.errorService.handlePrismaError(error.code);
       });
   }
 }
