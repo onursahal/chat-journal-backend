@@ -7,12 +7,11 @@ import { AuthService } from './auth.service';
 import { User } from '../user/user.model';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard';
-import { Logger } from '@nestjs/common';
 import { TokenService } from './token.service';
 import { TokenPair } from './interfaces/token.interface';
+
 @Resolver()
 export class AuthResolver {
-  private readonly logger = new Logger(AuthResolver.name);
   constructor(
     private authService: AuthService,
     private tokenService: TokenService,
@@ -24,10 +23,6 @@ export class AuthResolver {
     @Args() loginData: LoginArgs,
     @Context() context: any,
   ): Promise<TokenPair> {
-    this.logger.debug(
-      'login resolver: initiated with email: ',
-      loginData.email,
-    );
     const user = context.req.user;
     return this.authService.login({ sub: user.id, email: user.email });
   }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { ErrorService, ErrorCode } from '../error/error.service';
@@ -9,7 +9,6 @@ import { User } from '../user/user.interface';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
   constructor(
     private prismaService: PrismaService,
     private errorService: ErrorService,
@@ -17,7 +16,6 @@ export class AuthService {
   ) {}
 
   async login(payload: TokenPayload): Promise<TokenPair> {
-    this.logger.debug('login: token pair created');
     return {
       ...(await this.tokenService.getTokenPair({ payload })),
     };
@@ -33,9 +31,9 @@ export class AuthService {
     if (!!isUserAlreadyExists)
       throw this.errorService.createError(ErrorCode.USER_ALREADY_EXISTS);
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    this.logger.debug('createUser: user created');
+    const hashedPassword = await bcrypt.hash(password, 10).catch(() => {
+      throw this.errorService.createError(ErrorCode.BCRYPT_ERROR);
+    });
 
     const createdUser = await this.prismaService.user
       .create({
@@ -54,8 +52,7 @@ export class AuthService {
         },
       })
       .catch((error) => {
-        this.logger.debug('createUser: error creating user', error);
-        throw this.errorService.handlePrismaError(error.code);
+        throw this.errorService.handlePrismaError(error);
       });
 
     return createdUser;
@@ -72,17 +69,11 @@ export class AuthService {
           },
         })
         .catch((error) => {
-          throw this.errorService.handlePrismaError(error.code);
+          throw this.errorService.handlePrismaError(error);
         });
-
-      this.logger.debug(
-        'validateUserFromAccessToken: jwt access token validated',
-      );
 
       return true;
     } catch (error) {
-      this.logger.debug('Error in validateUserFromAccessToken: ', error);
-
       throw error;
     }
   }
@@ -96,20 +87,20 @@ export class AuthService {
         },
       })
       .catch((error) => {
-        throw this.errorService.handlePrismaError(error.code);
+        throw this.errorService.handlePrismaError(error);
       });
 
-    this.logger.debug('validateUser: user found');
-
-    // TODO: add error handling for bcrypt
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt
+      .compare(password, user.password)
+      .catch(() => {
+        throw this.errorService.createError(ErrorCode.BCRYPT_ERROR);
+      });
 
     if (!isPasswordValid)
       throw this.errorService.createError(ErrorCode.INVALID_CREDENTIALS);
 
     const userWithoutPassword = { ...user, password: undefined };
 
-    this.logger.debug('validateUser: user validated');
     return userWithoutPassword;
   }
 }

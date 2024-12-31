@@ -33,8 +33,8 @@ describe('AuthService', () => {
   };
 
   const mockTokenPair: TokenPair = {
-    access_token: 'access_token',
-    refresh_token: 'refresh_token',
+    accessToken: 'access_token',
+    refreshToken: 'refresh_token',
   };
 
   const mockUser: User = {
@@ -168,14 +168,55 @@ describe('AuthService', () => {
         userAlreadyExistError,
       );
     });
+    it('should throw an error if bcrypt fails', async () => {
+      const bcryptError = new GraphQLError('Bcrypt error', {
+        extensions: {
+          errorCode: ErrorCode.BCRYPT_ERROR,
+        },
+      });
+
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      const hashSpy = jest.spyOn(
+        bcrypt as {
+          hash(
+            data: string | Buffer,
+            saltOrRounds: string | number,
+          ): Promise<string>;
+        },
+        'hash',
+      );
+
+      hashSpy.mockRejectedValue(bcryptError);
+      mockErrorService.createError.mockReturnValue(bcryptError);
+
+      await expect(authService.createUser(mockCreateUserData)).rejects.toThrow(
+        bcryptError,
+      );
+
+      // expect(mockErrorService.createError).toHaveBeenCalledWith(
+      //   ErrorCode.BCRYPT_ERROR,
+      // );
+    });
     it('should throw an error if prisma create fails', async () => {
       const prismaCreateError = new GraphQLError('Prisma create error', {
         extensions: {
           errorCode: ErrorCode.DATABASE_CONNECT_ERROR,
         },
       });
+      const mockHashedPassword = 'hashedPassword';
 
       mockPrismaService.user.findUnique.mockResolvedValue(null);
+      const hashSpy = jest.spyOn(
+        bcrypt as {
+          hash(
+            data: string | Buffer,
+            saltOrRounds: string | number,
+          ): Promise<string>;
+        },
+        'hash',
+      );
+
+      hashSpy.mockResolvedValue(mockHashedPassword);
 
       mockPrismaService.user.create.mockRejectedValue(prismaCreateError);
       mockErrorService.handlePrismaError.mockReturnValue(prismaCreateError);

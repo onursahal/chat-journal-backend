@@ -10,8 +10,8 @@ export interface GenerateTokenArgs {
 }
 
 export interface TokenPair {
-  access_token: string;
-  refresh_token: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 export interface RefreshToken {

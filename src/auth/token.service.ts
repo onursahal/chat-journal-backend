@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../db/prisma.service';
 import { ErrorService, ErrorCode } from '../error/error.service';
@@ -12,7 +12,6 @@ import { User } from 'src/user/user.model';
 
 @Injectable()
 export class TokenService {
-  private readonly logger = new Logger(TokenService.name);
   constructor(
     private prismaService: PrismaService,
     private jwtService: JwtService,
@@ -22,93 +21,78 @@ export class TokenService {
     payload,
     currentRefreshToken,
   }: GenerateTokenArgs): Promise<TokenPair> {
-    const { sub: userId, email } =
-      (currentRefreshToken && this.jwtService.decode(currentRefreshToken)) ||
-      payload;
+    const { sub, email } = this.extractUserIdentity({
+      currentRefreshToken,
+      payload,
+    });
     try {
-      this.logger.debug('getTokenPair: initiated');
+      const accessToken = await this.generateAccessToken({ sub, email });
 
-      const access_token = await this.jwtService.signAsync({
-        sub: userId,
-        email,
-      });
-
-      const refresh_token = await this.generateRefreshToken({
+      const refreshToken = await this.generateRefreshToken({
         currentRefreshToken,
         payload,
       });
 
-      this.logger.debug('getTokenPair: token pair created');
-
-      return { access_token, refresh_token };
+      return { accessToken, refreshToken };
     } catch {
       throw this.errorService.createError(ErrorCode.TOKEN_SIGNING_ERROR);
     }
   }
 
-  async validateRefreshToken(payload: TokenPayload): Promise<User> {
-    const { sub: userId } = payload;
-    try {
-      const activeRefreshToken: RefreshToken =
-        await this.prismaService.refreshToken
-          .findFirstOrThrow({
-            where: {
-              userId,
-              isActive: true,
-            },
-          })
-          .catch((error) => {
-            throw this.errorService.handlePrismaError(error.code);
-          });
+  async validateRefreshToken(currentRefreshToken: string): Promise<User> {
+    const { sub } = this.extractUserIdentity({
+      currentRefreshToken,
+    });
 
-      this.logger.debug(
-        'validateRefreshToken: activeRefreshToken ',
-        activeRefreshToken,
-      );
-      if (activeRefreshToken.expiresAt.valueOf() < Date.now()) {
-        await this.blacklistRefreshTokens(userId);
-      }
-
-      const isCurrentTokenBlacklisted = !activeRefreshToken.isActive;
-
-      if (isCurrentTokenBlacklisted) {
-        throw this.errorService.createError(ErrorCode.INVALID_REFRESH_TOKEN);
-      }
-
-      return await this.prismaService.user
-        .findUniqueOrThrow({
+    const activeRefreshToken: RefreshToken =
+      await this.prismaService.refreshToken
+        .findFirstOrThrow({
           where: {
-            id: userId,
+            id: currentRefreshToken,
+            userId: sub,
+            isActive: true,
           },
         })
         .catch((error) => {
-          throw this.errorService.handlePrismaError(error.code);
+          throw this.errorService.handlePrismaError(error);
         });
-    } catch (error) {
-      this.logger.debug('Error in verifyRefreshToken: ', error);
-      throw error;
+
+    if (activeRefreshToken.expiresAt.valueOf() < Date.now()) {
+      await this.blacklistRefreshTokens(sub);
+      throw this.errorService.createError(ErrorCode.REFRESH_TOKEN_EXPIRED);
     }
+
+    return await this.prismaService.user
+      .findUniqueOrThrow({
+        where: {
+          id: sub,
+        },
+      })
+      .catch((error) => {
+        throw this.errorService.handlePrismaError(error);
+      });
+  }
+
+  async generateAccessToken(payload: TokenPayload): Promise<string> {
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    return accessToken;
   }
 
   async generateRefreshToken({
     payload,
     currentRefreshToken,
   }: GenerateTokenArgs): Promise<string> {
-    const { sub: userId, email } =
-      (currentRefreshToken && this.jwtService.decode(currentRefreshToken)) ||
-      payload;
-
-    this.logger.debug('generateRefreshToken: initiated with args: ', {
-      userId,
-      email,
+    const { sub, email } = this.extractUserIdentity({
       currentRefreshToken,
+      payload,
     });
 
-    await this.blacklistRefreshTokens(userId);
+    await this.blacklistRefreshTokens(sub);
 
-    const refresh_token = await this.jwtService
+    const refreshToken = await this.jwtService
       .signAsync(
-        { sub: userId, email },
+        { sub, email },
         {
           secret: process.env.JWT_REFRESH_SECRET,
           expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
@@ -118,23 +102,21 @@ export class TokenService {
         throw this.errorService.createError(ErrorCode.TOKEN_SIGNING_ERROR);
       });
 
-    const { exp } = await this.jwtService.decode(refresh_token);
-
-    this.logger.debug('generateRefreshToken: exp: ', exp);
+    const { exp } = await this.jwtService.decode(refreshToken);
 
     await this.prismaService.refreshToken
       .create({
         data: {
-          id: refresh_token,
+          id: refreshToken,
           expiresAt: new Date(exp * 1000),
-          userId,
+          userId: sub,
         },
       })
       .catch((error) => {
-        throw this.errorService.handlePrismaError(error.code);
+        throw this.errorService.handlePrismaError(error);
       });
-    this.logger.debug('generateRefreshToken: refresh token created');
-    return refresh_token;
+
+    return refreshToken;
   }
 
   async blacklistRefreshTokens(userId: string) {
@@ -149,7 +131,16 @@ export class TokenService {
         },
       })
       .catch((error) => {
-        throw this.errorService.handlePrismaError(error.code);
+        throw this.errorService.handlePrismaError(error);
       });
+  }
+  extractUserIdentity({
+    currentRefreshToken,
+    payload,
+  }: GenerateTokenArgs): TokenPayload {
+    const { sub, email } =
+      (currentRefreshToken && this.jwtService.decode(currentRefreshToken)) ||
+      payload;
+    return { sub, email };
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   JsonWebTokenError,
   NotBeforeError,
@@ -34,6 +34,7 @@ export enum ErrorCode {
   NULL_CONSTRAINT_VIOLATION = 'NULL_CONSTRAINT_VIOLATION',
   TABLE_NOT_FOUND = 'TABLE_NOT_FOUND',
   COLUMN_NOT_FOUND = 'COLUMN_NOT_FOUND',
+  BCRYPT_ERROR = 'BCRYPT_ERROR',
 }
 
 const prismaErrorCodeMap = {
@@ -192,6 +193,13 @@ const errorDetails: Record<ErrorCode, ErrorDetail> = {
       errorCode: ErrorCode.SOMETHING_WENT_WRONG,
     },
   },
+  [ErrorCode.BCRYPT_ERROR]: {
+    message: 'An error occurred',
+    extensions: {
+      type: ErrorType.UNEXPECTED,
+      errorCode: ErrorCode.BCRYPT_ERROR,
+    },
+  },
 };
 
 export interface ErrorDetail {
@@ -204,8 +212,10 @@ export interface ErrorDetail {
 
 @Injectable()
 export class ErrorService {
-  private readonly logger = new Logger(ErrorService.name);
-  createError(errorCode: ErrorCode) {
+  createError(
+    errorCode: ErrorCode,
+    extra?: Record<string, string | number | boolean | []>,
+  ) {
     const { message, extensions } = errorDetails[errorCode];
 
     if (!message || !extensions)
@@ -215,13 +225,16 @@ export class ErrorService {
           errorCode: ErrorCode.SOMETHING_WENT_WRONG,
         },
       });
-    return new GraphQLError(message, { extensions });
+    return new GraphQLError(message, {
+      extensions: {
+        type: extensions.type,
+        errorCode: extensions.errorCode,
+        ...extra,
+      },
+    });
   }
+
   handleJwtError(error: Error, isAccessToken: boolean) {
-    this.logger.debug(
-      'handleJwtError: initiated with error: ',
-      error instanceof TokenExpiredError,
-    );
     if (error instanceof TokenExpiredError || error instanceof NotBeforeError) {
       return this.createError(
         isAccessToken
@@ -239,10 +252,22 @@ export class ErrorService {
 
     return this.createError(ErrorCode.SOMETHING_WENT_WRONG);
   }
-  handlePrismaError(prismaErrorCode: keyof typeof prismaErrorCodeMap) {
-    if (!Object.keys(prismaErrorCodeMap).some((key) => key === prismaErrorCode))
+
+  handlePrismaError(prismaError: {
+    code: string;
+    meta?: { modelName: string };
+  }) {
+    const {
+      code,
+      meta: { modelName },
+    } = prismaError;
+    if (!Object.keys(prismaErrorCodeMap).some((key) => key === code))
       return this.createError(ErrorCode.SOMETHING_WENT_WRONG);
 
-    return this.createError(prismaErrorCodeMap[prismaErrorCode]);
+    console.log('modelName: ', modelName);
+    return this.createError(
+      prismaErrorCodeMap[code],
+      modelName && { type: modelName.toUpperCase() },
+    );
   }
 }

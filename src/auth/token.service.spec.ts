@@ -43,8 +43,8 @@ describe('TokenService', () => {
   };
 
   const mockTokenPair: TokenPair = {
-    access_token: 'access_token',
-    refresh_token: 'refresh_token',
+    accessToken: 'access_token',
+    refreshToken: 'refresh_token',
   };
 
   // TODO: Define refresh token db type
@@ -102,11 +102,11 @@ describe('TokenService', () => {
 
   describe('getTokenPair', () => {
     it('should return a token pair with payload', async () => {
-      mockJwtService.signAsync.mockReturnValue(mockTokenPair.access_token);
+      mockJwtService.signAsync.mockReturnValue(mockTokenPair.accessToken);
 
       jest
         .spyOn(tokenService, 'generateRefreshToken')
-        .mockResolvedValue(mockTokenPair.refresh_token);
+        .mockResolvedValue(mockTokenPair.refreshToken);
 
       const result = await tokenService.getTokenPair({ payload: mockPayload });
 
@@ -116,11 +116,11 @@ describe('TokenService', () => {
     it('should return a token pair with current refresh token', async () => {
       mockJwtService.decode.mockReturnValue(mockPayload);
 
-      mockJwtService.signAsync.mockReturnValue(mockTokenPair.access_token);
+      mockJwtService.signAsync.mockReturnValue(mockTokenPair.accessToken);
 
       jest
         .spyOn(tokenService, 'generateRefreshToken')
-        .mockResolvedValue(mockTokenPair.refresh_token);
+        .mockResolvedValue(mockTokenPair.refreshToken);
 
       const result = await tokenService.getTokenPair({
         currentRefreshToken: mockCurrentRefreshToken,
@@ -146,7 +146,6 @@ describe('TokenService', () => {
   });
 
   describe('validateRefreshToken', () => {
-    // TODO: This test could be a bullshit. Check after
     it('should return a user', async () => {
       mockPrismaService.refreshToken.findFirstOrThrow.mockResolvedValue(
         mockActiveRefreshToken,
@@ -154,7 +153,9 @@ describe('TokenService', () => {
 
       mockPrismaService.user.findUniqueOrThrow.mockResolvedValue(mockUser);
 
-      const result = await tokenService.validateRefreshToken(mockPayload);
+      const result = await tokenService.validateRefreshToken(
+        mockTokenPair.refreshToken,
+      );
 
       expect(result).toEqual(mockUser);
     });
@@ -177,7 +178,7 @@ describe('TokenService', () => {
       );
 
       await expect(
-        tokenService.validateRefreshToken(mockPayload),
+        tokenService.validateRefreshToken(mockTokenPair.refreshToken),
       ).rejects.toThrow(prismaFindFirstOrThrowError);
     });
     it('should throw an error if refresh token is expired', async () => {
@@ -201,7 +202,7 @@ describe('TokenService', () => {
       mockErrorService.createError.mockReturnValue(expiredRefreshTokenError);
 
       await expect(
-        tokenService.validateRefreshToken(mockPayload),
+        tokenService.validateRefreshToken(mockTokenPair.refreshToken),
       ).rejects.toThrow(expiredRefreshTokenError);
     });
     it('should throw an error if prisma cannot find user', async () => {
@@ -221,7 +222,7 @@ describe('TokenService', () => {
       mockErrorService.handlePrismaError.mockReturnValue(prismaFindUserError);
 
       await expect(
-        tokenService.validateRefreshToken(mockPayload),
+        tokenService.validateRefreshToken(mockTokenPair.refreshToken),
       ).rejects.toThrow(prismaFindUserError);
     });
   });
@@ -232,7 +233,7 @@ describe('TokenService', () => {
         .spyOn(tokenService, 'blacklistRefreshTokens')
         .mockResolvedValue({ count: 5 });
 
-      mockJwtService.signAsync.mockResolvedValue(mockTokenPair.refresh_token);
+      mockJwtService.signAsync.mockResolvedValue(mockTokenPair.refreshToken);
       mockJwtService.decode.mockResolvedValueOnce({
         ...mockPayload,
         exp: 1234567890,
@@ -250,11 +251,11 @@ describe('TokenService', () => {
       );
     };
     const generateRefreshTokenSuccessAssertions = (result) => {
-      expect(result).toEqual(mockTokenPair.refresh_token);
+      expect(result).toEqual(mockTokenPair.refreshToken);
       expect(mockJwtService.signAsync).toHaveBeenCalledWith(mockPayload);
       expect(mockPrismaService.refreshToken.create).toHaveBeenCalledWith({
         data: {
-          id: mockTokenPair.refresh_token,
+          id: mockTokenPair.refreshToken,
           expiresAt: new Date(1234567890 * 1000),
           userId: mockPayload.sub,
         },
@@ -295,7 +296,7 @@ describe('TokenService', () => {
         .spyOn(tokenService, 'blacklistRefreshTokens')
         .mockResolvedValue({ count: 5 });
 
-      mockJwtService.signAsync.mockResolvedValue(mockTokenPair.refresh_token);
+      mockJwtService.signAsync.mockResolvedValue(mockTokenPair.refreshToken);
       mockJwtService.decode.mockResolvedValueOnce({
         ...mockPayload,
         exp: 1234567890,

@@ -18,8 +18,9 @@ import { ErrorModule } from './error/error.module';
       formatError: (error) => ({
         message: error.message,
         extensions: {
-          exceptionType: error.extensions.exceptionType,
-          errorCode: error.extensions.errorCode,
+          ...error.extensions,
+          stacktrace: undefined,
+          code: undefined,
         },
       }),
       playground: false,
