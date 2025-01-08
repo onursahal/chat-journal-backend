@@ -5,7 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TokenPair, TokenPayload } from './interfaces/token.interface';
 import { ErrorCode, ErrorService } from '../error/error.service';
 import { User } from '../user/user.interface';
-import { CreateUser, UserCredentials } from './interfaces/auth.interface';
+import { SignUp, UserCredentials } from './interfaces/auth.interface';
 import * as bcrypt from 'bcrypt';
 import { GraphQLError } from 'graphql';
 
@@ -56,7 +56,7 @@ describe('AuthService', () => {
     password: 'password',
   };
 
-  const mockCreateUserData: CreateUser = {
+  const mockSignUpData: SignUp = {
     ...mockUserCredentials,
     firstName: 'John',
     lastName: 'Doe',
@@ -90,7 +90,7 @@ describe('AuthService', () => {
     expect(errorService).toBeDefined();
   });
 
-  describe('login', () => {
+  describe('signIn', () => {
     it('should return a token pair', async () => {
       const mockPayload: TokenPayload = {
         sub: '1',
@@ -99,7 +99,7 @@ describe('AuthService', () => {
 
       mockTokenService.getTokenPair.mockResolvedValue(mockTokenPair);
 
-      const result = await authService.login(mockPayload);
+      const result = await authService.signIn(mockPayload);
 
       expect(result).toEqual(mockTokenPair);
       expect(mockTokenService.getTokenPair).toHaveBeenCalledWith({
@@ -108,9 +108,9 @@ describe('AuthService', () => {
     });
   });
 
-  describe('createUser', () => {
+  describe('signUp', () => {
     it('should return user', async () => {
-      const mockCreateUserData: CreateUser = {
+      const mockSignUpData: SignUp = {
         email: 'test@test.com',
         password: 'password',
         firstName: 'John',
@@ -134,12 +134,12 @@ describe('AuthService', () => {
 
       mockPrismaService.user.create.mockResolvedValue(mockUser);
 
-      const result = await authService.createUser(mockCreateUserData);
+      const result = await authService.signUp(mockSignUpData);
 
       expect(result).toEqual(mockUser);
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
         data: {
-          ...mockCreateUserData,
+          ...mockSignUpData,
           password: mockHashedPassword,
         },
         select: {
@@ -152,7 +152,7 @@ describe('AuthService', () => {
           password: false,
         },
       });
-      expect(hashSpy).toHaveBeenCalledWith(mockCreateUserData.password, 10);
+      expect(hashSpy).toHaveBeenCalledWith(mockSignUpData.password, 10);
     });
     it('should throw an error if user already exists', async () => {
       const userAlreadyExistError = new GraphQLError('User already exists', {
@@ -164,7 +164,7 @@ describe('AuthService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockErrorService.createError.mockReturnValue(userAlreadyExistError);
 
-      await expect(authService.createUser(mockCreateUserData)).rejects.toThrow(
+      await expect(authService.signUp(mockSignUpData)).rejects.toThrow(
         userAlreadyExistError,
       );
     });
@@ -189,7 +189,7 @@ describe('AuthService', () => {
       hashSpy.mockRejectedValue(bcryptError);
       mockErrorService.createError.mockReturnValue(bcryptError);
 
-      await expect(authService.createUser(mockCreateUserData)).rejects.toThrow(
+      await expect(authService.signUp(mockSignUpData)).rejects.toThrow(
         bcryptError,
       );
 
@@ -221,7 +221,7 @@ describe('AuthService', () => {
       mockPrismaService.user.create.mockRejectedValue(prismaCreateError);
       mockErrorService.handlePrismaError.mockReturnValue(prismaCreateError);
 
-      await expect(authService.createUser(mockCreateUserData)).rejects.toThrow(
+      await expect(authService.signUp(mockSignUpData)).rejects.toThrow(
         prismaCreateError,
       );
     });

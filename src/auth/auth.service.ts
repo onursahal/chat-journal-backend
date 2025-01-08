@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { ErrorService, ErrorCode } from '../error/error.service';
 import { TokenService } from './token.service';
 import { TokenPair, TokenPayload } from './interfaces/token.interface';
-import { CreateUser, UserCredentials } from './interfaces/auth.interface';
+import { SignUp, UserCredentials } from './interfaces/auth.interface';
 import { User } from '../user/user.interface';
 
 @Injectable()
@@ -15,13 +15,13 @@ export class AuthService {
     private tokenService: TokenService,
   ) {}
 
-  async login(payload: TokenPayload): Promise<TokenPair> {
+  async signIn(payload: TokenPayload): Promise<TokenPair> {
     return {
       ...(await this.tokenService.getTokenPair({ payload })),
     };
   }
 
-  async createUser(data: CreateUser): Promise<User> {
+  async signUp(data: SignUp): Promise<User> {
     const { email, password } = data;
 
     const isUserAlreadyExists = await this.prismaService.user.findUnique({

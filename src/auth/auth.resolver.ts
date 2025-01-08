@@ -1,7 +1,7 @@
 import { UseGuards } from '@nestjs/common';
 import { Resolver, Query, Args, Mutation, Context } from '@nestjs/graphql';
-import { LoginArgs } from './dto/args/login.args';
-import { CreateUserInput } from './dto/inputs/create-user.input';
+import { SignInArgs } from './dto/args/sign-in.args';
+import { SignUpArgs } from './dto/args/sign-up.args';
 import { GetTokenPairResponse } from './dto/types/get-token-pair-response.type';
 import { AuthService } from './auth.service';
 import { User } from '../user/user.model';
@@ -19,12 +19,12 @@ export class AuthResolver {
 
   @UseGuards(LocalAuthGuard)
   @Query(() => GetTokenPairResponse)
-  async login(
-    @Args() loginData: LoginArgs,
+  async signIn(
+    @Args() signInArgs: SignInArgs,
     @Context() context: any,
   ): Promise<TokenPair> {
     const user = context.req.user;
-    return this.authService.login({ sub: user.id, email: user.email });
+    return this.authService.signIn({ sub: user.id, email: user.email });
   }
 
   @UseGuards(JwtRefreshAuthGuard)
@@ -36,8 +36,8 @@ export class AuthResolver {
   }
 
   // TODO: Check which guard needs to be used here
-  @Mutation(() => User, { name: 'createUser' })
-  async createUser(@Args('createUserData') createUserData: CreateUserInput) {
-    return this.authService.createUser(createUserData);
+  @Mutation(() => User)
+  async signUp(@Args() signUpArgs: SignUpArgs) {
+    return this.authService.signUp(signUpArgs);
   }
 }
